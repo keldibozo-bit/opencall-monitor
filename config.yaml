@@ -1,0 +1,158 @@
+# === Konfigurimi i opencall-monitor ===
+
+# Sa shpesh të kontrollohen burimet (orë)
+poll_interval_hours: 6
+
+# Fjalë-kyçe për scoring (rëndësi 0-3). Titulli/përshkrimi krahasohet me këto.
+keywords:
+  high:      # +3 pikë secila
+    - "legal services"
+    - "legal advisory"
+    - "rule of law"
+    - "legislation"
+    - "approximation"
+    - "legal approximation"
+    - "harmonization of legislation"
+    - "acquis"
+    - "transposition"
+    - "gap analysis"
+    - "legal reform"
+    - "law reform"
+    - "justice reform"
+    - "legal review"
+    - "legal analysis"
+    - "shërbime ligjore"
+    - "këshillim ligjor"
+    - "përfaqësim ligjor"
+    - "asistencë ligjore"
+    - "reformë në drejtësi"
+    - "përafrim i legjislacionit"
+    - "hartim i legjislacionit"
+    # Shenje sintetike (asnjehere s'shfaqet ne tekst real) - injektuar vetem
+    # nga poll_development_aid() kur "Sectors:" perfshin taksonomine "Law" te
+    # DevelopmentAid.org. E sigurt 100% - s'ka rrezik false-positive si "lawyer"
+    # apo "by-law" sepse s'eshte fjale e gjuhes natyrale.
+    - "__devaid_sector_law__"
+    - "analizë ligjore"
+  medium:    # +2 pikë secila
+    - "consultancy"
+    - "legal expert"
+    - "ekspert ligjor"
+    - "justice sector reform"
+    - "judicial reform"
+    - "access to justice"
+    - "anti-corruption"
+    - "anti-korrupsion"
+    - "legal drafting"
+    - "legal compliance"
+    - "project management"
+    - "project manager"
+    - "team leader"
+    - "team leader/legal"
+    - "eu integration"
+    - "eu accession"
+    - "integrim evropian"
+    - "konsulencë ligjore"
+  low:       # +1 pikë secila
+    - "capacity building"
+    - "institutional reform"
+    - "institutional development"
+    - "regulatory framework"
+    - "ngritje kapacitetesh"
+    - "reformë institucionale"
+
+# Praga minimale e score-it qe nje njoftim te konsiderohet relevant per firmen
+# (law firm interesuar per legal services drejtperdrejt ose terthorazi: project
+# management/team leader ne projekte qe nderlidhen me legal services etj.).
+# E vendosur mjaft e larte qellimisht: nje fjale e vetme e nivelit "medium" (+2)
+# NUK mjafton vetem qe te kalohet pragu (shmang false-positive nga emra kompanish
+# ose referenca gjyqesore te rastesishme, p.sh. nje zyre permbarimi qe quhet
+# "Power & Justice") - duhet ose nje fjale e forte "high", ose disa perputhje.
+min_score_review: 4
+
+# === TED (EU) ===
+ted:
+  enabled: true
+  endpoint: "https://api.ted.europa.eu/v3/notices/search"
+  # CPV: 79100000=Legal services, 79110000=Legal advisory/representation, 79140000=Legal advisory/info
+  # 75231000=Judicial services, 75100000=Administration services, 75110000=General
+  # public services (gjetur nga rasti real "EU4Justice II" - TED e klasifikon si
+  # "Judicial services" 75xxx, jo "Legal services" 79xxx, prandaj i shtojme te dyja familjet)
+  cpv_codes:
+    - "79100000"
+    - "79110000"
+    - "79140000"
+    - "75231000"
+    - "75100000"
+    - "75110000"
+  # Vendi i performancës — Shqipëria (IPA). Nëse s'kthen rezultate, provo pa këtë filtër
+  # ose kontrollo kodin e saktë NUTS/vendi në swagger: https://api.ted.europa.eu/swagger
+  place_of_performance: "ALB"
+  scope: "ACTIVE"
+  limit: 100
+
+# === UNDP Albania (RSS/RDF publik, pa autentikim) ===
+undp:
+  enabled: true
+  feed_url: "https://procurement-notices.undp.org/rss_feeds/ALB.xml"
+
+# === Agjencia e Prokurimit Publik (app.gov.al) — tenderat shteterore/ministrite/bashkite ===
+# Faqja kerkon browser te automatizuar (Playwright) sepse kerkimi ngarkohet me JS.
+# Kerkimi eshte "permban fjalen" mbi titullin zyrtar te tenderit - prandaj perdorim
+# disa terma (jo vetem njeri), sepse titujt e tenderave perdorin fjale te ndryshme.
+app_gov:
+  enabled: true
+  search_url: "https://app.gov.al/njoftimi-i-kontrat%C3%ABs-s%C3%AB-shpallur/"
+  search_terms:
+    - "ligjor"
+    - "juridik"
+    - "avokat"
+    - "konsulence ligjore"
+    - "perfaqesim ligjor"
+
+# === DevelopmentAid.org — kerkon llogari (membership), mbulon 150+ donatore
+# (EC, EBRD, WB, GIZ, ADA, UNDP, UN Women, ILO, WHO etj.) per Shqiperi ne nje
+# vend te vetem. Kredencialet VIJNE NGA ENVIRONMENT VARIABLES (DEVELOPMENT_AID_EMAIL,
+# DEVELOPMENT_AID_PASSWORD) - ne Render vendosen te "Environment" ne dashboard,
+# lokalisht vendosen te start_server.bat (file lokal, s'shkon ne git).
+development_aid:
+  enabled: true
+  email: "${DEVELOPMENT_AID_EMAIL}"
+  password: "${DEVELOPMENT_AID_PASSWORD}"
+  location_id: 262   # Shqiperia (id i brendshem i developmentaid.org)
+  search_terms:
+    - "legal"
+    - "legal services"
+    - "legal advisory"
+    - "justice reform"
+    - "legislation"
+
+# === Donatore/OJF (via Panorama Online — burimi real per shume donatore ne Shqiperi) ===
+# Shumica e donatoreve (GIZ, Austrian Development Agency, SDC, QFFD, Open Society etj.)
+# s'kane portal publik prokurimi te vetin ne Shqiperi; njoftimet e tyre publikohen te
+# Panorama Online, kategoria "Kendi i njoftimeve". Ky connector kontrollon ate kategori
+# nje here dhe klasifikon çdo njoftim sipas organizatave me poshte (nga titulli).
+# Per te shtuar nje organizate te re: gjej fjalen/frazen qe e identifikon ne titull
+# (kontrollo manualisht disa faqe te kategorise) dhe shtoje ketu - mos shto organizata
+# "me hamendje" pa u siguruar qe publikojne vertet ne kete feed.
+donors:
+  enabled: true
+  base_url: "https://www.panorama.com.al/category/njoftime/"
+  max_pages: 10         # sa faqe pagination te kontrollohen (faqja 1 + N-1 vijuese)
+  fetch_deadline_from_article: true   # hap cdo artikull te ri per te kerkuar afatin/daten (regex)
+  organizations:
+    - name: "GIZ"
+      match: ["giz"]
+    - name: "Austrian Development Agency"
+      match: ["austrian development agency"]
+    - name: "Swiss Agency for Development and Cooperation (SDC)"
+      match: ["swiss agency for development", "(sdc)"]
+    - name: "Qatar Fund for Development"
+      match: ["qatar fund", "qffd"]
+    - name: "Open Society Foundation for Albania"
+      match: ["open society foundation"]
+
+# === RSS gjenerik (p.sh. UNDP procurement notices nëse ofron feed) ===
+rss_sources: []
+  # - name: "UNDP Albania"
+  #   url: "https://procurement-notices.undp.org/rss.xml"
