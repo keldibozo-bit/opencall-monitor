@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+opencalls.db
+server.log
+debug_text.txt
+.git/
+opencall-monitor/
+start_server.bat
+start_server_hidden.vbs
