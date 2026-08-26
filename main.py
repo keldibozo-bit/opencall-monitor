@@ -810,10 +810,17 @@ def poll_giz() -> dict:
             resp.raise_for_status()
             soup = BeautifulSoup(resp.text, "html.parser")
 
+            # Kufizohemi te kolona kryesore e permbajtjes (td-main-content), JO
+            # sidebar-i (td-main-sidebar) - sidebar-i permban widget "lajme te
+            # fundit"/"me te lexuarat" qe perseritet identik ne çdo faqe pagination
+            # dhe s'ka lidhje me njoftimet/tenderat (artikuj lajmesh/opinioni te
+            # sajtit ne pergjithesi, jo te kategoria "njoftime").
+            main_content = soup.find(class_="td-main-content") or soup
+
             # Marrim te gjitha linket brenda titujve (h1/h2/h3) qe cojne te nje artikull
             # (jo te nje kategori/tag), gje qe funksionon per shume tema WordPress
             # pa u mbeshtetur ne nje class specifike te panjohur.
-            for heading in soup.find_all(["h1", "h2", "h3"]):
+            for heading in main_content.find_all(["h1", "h2", "h3"]):
                 a = heading.find("a", href=True)
                 if not a:
                     continue
