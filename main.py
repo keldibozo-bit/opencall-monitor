@@ -971,51 +971,166 @@ DASHBOARD_HTML = """
 <html lang="sq">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>opencall-monitor</title>
 <style>
-  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
-  h1 { font-size: 20px; margin-bottom: 4px; }
-  .sub { color: #999; font-size: 13px; margin-bottom: 20px; }
-  .toolbar { margin-bottom: 16px; }
-  button { background: #2a2f3a; color: #e6e6e6; border: 1px solid #444; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-  button:hover { background: #363c4a; }
-  .board { display: flex; gap: 12px; overflow-x: auto; }
-  .col { min-width: 260px; background: #171a21; border-radius: 8px; padding: 10px; flex-shrink: 0; }
-  .col h3 { font-size: 13px; text-transform: uppercase; color: #aaa; margin: 4px 0 10px; }
-  .card { background: #20242e; border-radius: 6px; padding: 10px; margin-bottom: 8px; font-size: 13px; border-left: 3px solid #4a90d9; }
-  .card .title { font-weight: 600; margin-bottom: 4px; }
-  .card .meta { color: #999; font-size: 11px; margin-bottom: 6px; }
-  .card .deadline { font-size: 11px; padding: 2px 6px; border-radius: 4px; display: inline-block; }
-  .dl-ok { background: #1e3a2a; color: #6fcf97; }
-  .dl-soon { background: #3a3320; color: #f2c94c; }
-  .dl-urgent { background: #3a2020; color: #eb5757; }
-  select { background: #2a2f3a; color: #e6e6e6; border: 1px solid #444; border-radius: 4px; font-size: 11px; }
-  a { color: #6fa8dc; }
+  :root {
+    --bg: #0a0b0d;
+    --surface: #131519;
+    --surface-2: #1a1d23;
+    --surface-3: #21252c;
+    --border: #262a33;
+    --border-soft: #1e222a;
+    --text: #eef0f3;
+    --text-dim: #9198a3;
+    --text-faint: #5c6270;
+    --accent: #5b8cff;
+    --accent-soft: rgba(91,140,255,0.12);
+    --success: #34d399;
+    --success-soft: rgba(52,211,153,0.12);
+    --warning: #fbbf24;
+    --warning-soft: rgba(251,191,36,0.12);
+    --danger: #f87171;
+    --danger-soft: rgba(248,113,113,0.12);
+    --radius: 10px;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -8px rgba(0,0,0,0.5);
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 20% -10%, #12141a 0%, var(--bg) 55%);
+    color: var(--text);
+    margin: 0;
+    padding: 28px 32px 60px;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 22px; }
+  .brand h1 { font-size: 21px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .brand .sub { color: var(--text-dim); font-size: 13px; }
+
+  .stats { display: flex; gap: 10px; flex-wrap: wrap; }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    padding: 9px 14px;
+    min-width: 84px;
+  }
+  .stat .n { font-size: 18px; font-weight: 700; line-height: 1.1; }
+  .stat .l { font-size: 10.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+
+  .toolbar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius);
+    padding: 10px 14px; margin-bottom: 22px;
+  }
+  button.primary {
+    background: var(--accent); color: #0a0b0d; border: none; font-weight: 600;
+    padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px;
+    display: inline-flex; align-items: center; gap: 8px; transition: filter .15s, transform .1s;
+  }
+  button.primary:hover { filter: brightness(1.08); }
+  button.primary:active { transform: scale(0.97); }
+  button.primary:disabled { opacity: .6; cursor: default; }
+  .spinner {
+    width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid rgba(10,11,13,0.35); border-top-color: #0a0b0d;
+    animation: spin .7s linear infinite; display: none;
+  }
+  button.primary.loading .spinner { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .toggle { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-dim); cursor: pointer; user-select: none; }
+  .toggle input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+  .toolbar-sep { width: 1px; align-self: stretch; background: var(--border-soft); }
+  #pollStatus { font-size: 12px; color: var(--text-faint); margin-left: auto; }
+
+  .board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; }
+  .board::-webkit-scrollbar { height: 8px; }
+  .board::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 8px; }
+  .col { min-width: 280px; max-width: 280px; background: var(--surface); border: 1px solid var(--border-soft); border-radius: 12px; padding: 12px; flex-shrink: 0; }
+  .col-head { display: flex; align-items: center; justify-content: space-between; margin: 2px 4px 12px; }
+  .col-head h3 { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin: 0; }
+  .col-head .count { font-size: 11px; color: var(--text-faint); background: var(--surface-3); border-radius: 20px; padding: 1px 8px; }
+  .empty-col { color: var(--text-faint); font-size: 12px; padding: 10px 4px; text-align: center; }
+
+  .card {
+    background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 10px;
+    padding: 12px; margin-bottom: 10px; font-size: 13px; box-shadow: var(--shadow);
+    transition: border-color .15s, transform .1s;
+  }
+  .card:hover { border-color: #33394a; }
+  .card .badges { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .src-badge { font-size: 10px; font-weight: 700; letter-spacing: .02em; padding: 2px 7px; border-radius: 5px; }
+  .score-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); margin-left: auto; }
+  .card .title { font-weight: 600; line-height: 1.35; margin-bottom: 8px; color: var(--text); }
+  .card .meta { color: var(--text-dim); font-size: 11.5px; margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
+  .card .meta .lbl { color: var(--text-faint); }
+  .deadline { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 5px; display: inline-block; }
+  .dl-ok { background: var(--success-soft); color: var(--success); }
+  .dl-soon { background: var(--warning-soft); color: var(--warning); }
+  .dl-urgent { background: var(--danger-soft); color: var(--danger); }
+  .card .link-row { margin: 8px 0 10px; }
+  .card .link-row a { font-size: 12px; }
+  select.status-select {
+    width: 100%; background: var(--surface-3); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; font-size: 11.5px; padding: 5px 6px; cursor: pointer;
+  }
+
+  .loading-state, .board-empty { color: var(--text-faint); font-size: 13px; padding: 40px 0; text-align: center; }
 </style>
 </head>
 <body>
-  <h1>opencall-monitor</h1>
-  <div class="sub">Monitorim thirrjesh/tenderësh për shërbime ligjore — GIZ, TED/BE, UNDP, OSBE etj.</div>
+  <header>
+    <div class="brand">
+      <h1>opencall-monitor</h1>
+      <div class="sub">Monitorim thirrjesh/tenderësh për shërbime ligjore — GIZ, TED/BE, UNDP, Prokurimi Publik, DevelopmentAid</div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
   <div class="toolbar">
-    <button onclick="pollNow()">Kontrollo tani</button>
-    <span id="pollStatus" style="margin-left:10px; color:#999; font-size:12px;"></span>
+    <button class="primary" id="pollBtn" onclick="pollNow()">
+      <span class="spinner"></span><span id="pollBtnLabel">Kontrollo tani</span>
+    </button>
+    <div class="toolbar-sep"></div>
+    <label class="toggle"><input type="checkbox" id="relevantToggle" checked onchange="loadBoard()"> Vetëm relevante</label>
+    <label class="toggle"><input type="checkbox" id="expiredToggle" onchange="loadBoard()"> Përfshi të skaduara</label>
+    <span id="pollStatus"></span>
   </div>
-  <div class="board" id="board"></div>
+
+  <div class="board" id="board"><div class="loading-state">Duke ngarkuar…</div></div>
 
 <script>
 const STATUSES = ["NEW","REVIEW","GO","BID","WON","LOST","DROPPED"];
+
+const SOURCE_COLORS = {
+  "GIZ": { bg: "rgba(91,140,255,0.15)", fg: "#8fb2ff" },
+  "TED": { bg: "rgba(52,211,153,0.15)", fg: "#5ee0ae" },
+  "UNDP": { bg: "rgba(96,165,250,0.15)", fg: "#7cb8fb" },
+  "APP (Prokurimi Publik)": { bg: "rgba(251,191,36,0.15)", fg: "#fbbf24" },
+  "DevelopmentAid": { bg: "rgba(232,121,249,0.15)", fg: "#e879f9" },
+};
+function sourceColor(name) {
+  if (SOURCE_COLORS[name]) return SOURCE_COLORS[name];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return { bg: `hsla(${h},60%,55%,0.15)`, fg: `hsl(${h},70%,72%)` };
+}
 
 function daysLeft(deadline) {
   if (!deadline) return null;
   const d = new Date(deadline);
   if (isNaN(d)) return null;
-  const diff = Math.ceil((d - new Date()) / (1000*60*60*24));
-  return diff;
+  return Math.ceil((d - new Date()) / (1000*60*60*24));
 }
 
 function deadlineChip(deadline) {
   const days = daysLeft(deadline);
-  if (days === null) return '<span class="deadline dl-ok">—</span>';
+  if (days === null) return '<span class="deadline dl-ok">pa afat</span>';
   let cls = "dl-ok";
   if (days <= 3) cls = "dl-urgent";
   else if (days <= 10) cls = "dl-soon";
@@ -1023,26 +1138,64 @@ function deadlineChip(deadline) {
   return `<span class="deadline ${cls}">${label}</span>`;
 }
 
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function renderStats(notices) {
+  const sources = new Set(notices.map(n => n.source));
+  const urgent = notices.filter(n => { const d = daysLeft(n.deadline); return d !== null && d <= 3 && d >= 0; }).length;
+  const stats = document.getElementById('stats');
+  stats.innerHTML = [
+    { n: notices.length, l: "Njoftime" },
+    { n: sources.size, l: "Burime" },
+    { n: urgent, l: "Urgjente" },
+  ].map(s => `<div class="stat"><div class="n">${s.n}</div><div class="l">${s.l}</div></div>`).join('');
+}
+
 async function loadBoard() {
-  const res = await fetch('/api/notices');
+  const relevantOnly = document.getElementById('relevantToggle').checked;
+  const includeExpired = document.getElementById('expiredToggle').checked;
+  const params = new URLSearchParams({ relevant_only: relevantOnly, include_expired: includeExpired });
+  const res = await fetch(`/api/notices?${params}`);
   const notices = await res.json();
+  renderStats(notices);
+
   const board = document.getElementById('board');
+  if (notices.length === 0) {
+    board.innerHTML = '<div class="board-empty">Asnjë njoftim nuk përputhet me filtrat aktualë.</div>';
+    return;
+  }
   board.innerHTML = '';
   for (const status of STATUSES) {
     const col = document.createElement('div');
     col.className = 'col';
     const items = notices.filter(n => n.status === status);
-    col.innerHTML = `<h3>${status} (${items.length})</h3>`;
+    const head = document.createElement('div');
+    head.className = 'col-head';
+    head.innerHTML = `<h3>${status}</h3><span class="count">${items.length}</span>`;
+    col.appendChild(head);
+    if (items.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-col';
+      empty.textContent = '—';
+      col.appendChild(empty);
+    }
     for (const n of items) {
+      const sc = sourceColor(n.source);
       const card = document.createElement('div');
       card.className = 'card';
       card.innerHTML = `
-        <div class="title">${n.title}</div>
-        <div class="meta">${n.source} · ${n.buyer || ''} · score ${n.score}</div>
-        <div class="meta">shpallur: ${n.published_date || '—'}</div>
-        <div class="meta">afati: ${deadlineChip(n.deadline)} ${n.deadline || ''}</div>
-        <div class="meta"><a href="${n.url}" target="_blank">hap burimin →</a></div>
-        <select onchange="setStatus('${n.fingerprint}', this.value)">
+        <div class="badges">
+          <span class="src-badge" style="background:${sc.bg};color:${sc.fg}">${escapeHtml(n.source)}</span>
+          <span class="score-badge">★ ${n.score}</span>
+        </div>
+        <div class="title">${escapeHtml(n.title)}</div>
+        <div class="meta"><span class="lbl">botues:</span> ${escapeHtml(n.buyer || '—')}</div>
+        <div class="meta"><span class="lbl">shpallur:</span> ${escapeHtml(n.published_date || '—')}</div>
+        <div class="meta"><span class="lbl">afati:</span> ${deadlineChip(n.deadline)} ${escapeHtml(n.deadline || '')}</div>
+        <div class="link-row"><a href="${n.url}" target="_blank" rel="noopener">hap burimin →</a></div>
+        <select class="status-select" onchange="setStatus('${n.fingerprint}', this.value)">
           ${STATUSES.map(s => `<option value="${s}" ${s===status?'selected':''}>${s}</option>`).join('')}
         </select>
       `;
@@ -1058,11 +1211,23 @@ async function setStatus(fingerprint, status) {
 }
 
 async function pollNow() {
-  document.getElementById('pollStatus').innerText = 'duke kontrolluar...';
-  const res = await fetch('/api/poll', { method: 'POST' });
-  const data = await res.json();
-  document.getElementById('pollStatus').innerText = JSON.stringify(data.results);
-  loadBoard();
+  const btn = document.getElementById('pollBtn');
+  const label = document.getElementById('pollBtnLabel');
+  btn.classList.add('loading');
+  btn.disabled = true;
+  label.textContent = 'Duke kontrolluar…';
+  document.getElementById('pollStatus').textContent = '';
+  try {
+    const res = await fetch('/api/poll', { method: 'POST' });
+    const data = await res.json();
+    const total = data.results.reduce((sum, r) => sum + (r.new || 0), 0);
+    document.getElementById('pollStatus').textContent = `${total} njoftime të reja · ${new Date().toLocaleTimeString('sq-AL')}`;
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    label.textContent = 'Kontrollo tani';
+    loadBoard();
+  }
 }
 
 loadBoard();
