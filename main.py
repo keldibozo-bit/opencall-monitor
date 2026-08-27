@@ -980,6 +980,10 @@ DASHBOARD_HTML = """
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>opencall-monitor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚖️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #0a0b0d;
@@ -992,6 +996,7 @@ DASHBOARD_HTML = """
     --text-dim: #9198a3;
     --text-faint: #5c6270;
     --accent: #5b8cff;
+    --accent-2: #8b7bff;
     --accent-soft: rgba(91,140,255,0.12);
     --success: #34d399;
     --success-soft: rgba(52,211,153,0.12);
@@ -1003,43 +1008,61 @@ DASHBOARD_HTML = """
     --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -8px rgba(0,0,0,0.5);
   }
   * { box-sizing: border-box; }
+  html { scrollbar-color: #2a2f3a transparent; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Arial, sans-serif;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
     background: radial-gradient(1200px 600px at 20% -10%, #12141a 0%, var(--bg) 55%);
     color: var(--text);
     margin: 0;
-    padding: 28px 32px 60px;
+    padding: 24px 32px 60px;
     -webkit-font-smoothing: antialiased;
+    min-width: 320px;
   }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
 
-  header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 22px; }
-  .brand h1 { font-size: 21px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
-  .brand .sub { color: var(--text-dim); font-size: 13px; }
+  .topbar {
+    position: sticky; top: 0; z-index: 20; margin: -24px -32px 0; padding: 16px 32px 14px;
+    background: linear-gradient(180deg, var(--bg) 78%, transparent);
+    backdrop-filter: blur(6px);
+  }
+  header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 18px; }
+  .brand { display: flex; align-items: center; gap: 11px; }
+  .brand .logo {
+    width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: flex; align-items: center; justify-content: center; font-size: 17px;
+    box-shadow: 0 4px 14px -4px rgba(91,140,255,0.55);
+  }
+  .brand h1 { font-size: 19px; font-weight: 800; margin: 0; letter-spacing: -0.01em; line-height: 1.2; }
+  .brand .sub { color: var(--text-dim); font-size: 12.5px; margin-top: 1px; }
 
   .stats { display: flex; gap: 10px; flex-wrap: wrap; }
   .stat {
     background: var(--surface);
     border: 1px solid var(--border-soft);
     border-radius: var(--radius);
-    padding: 9px 14px;
-    min-width: 84px;
+    padding: 8px 14px;
+    min-width: 78px;
+    transition: border-color .15s;
   }
-  .stat .n { font-size: 18px; font-weight: 700; line-height: 1.1; }
-  .stat .l { font-size: 10.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+  .stat:hover { border-color: #33394a; }
+  .stat .n { font-size: 18px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+  .stat.urgent .n { color: var(--danger); }
 
   .toolbar {
-    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius);
-    padding: 10px 14px; margin-bottom: 22px;
+    padding: 10px 12px;
   }
   button.primary {
-    background: var(--accent); color: #0a0b0d; border: none; font-weight: 600;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #0a0b0d; border: none; font-weight: 700;
     padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px;
     display: inline-flex; align-items: center; gap: 8px; transition: filter .15s, transform .1s;
+    white-space: nowrap;
   }
-  button.primary:hover { filter: brightness(1.08); }
+  button.primary:hover { filter: brightness(1.1); }
   button.primary:active { transform: scale(0.97); }
   button.primary:disabled { opacity: .6; cursor: default; }
   .spinner {
@@ -1049,70 +1072,122 @@ DASHBOARD_HTML = """
   }
   button.primary.loading .spinner { display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
-  .toggle { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-dim); cursor: pointer; user-select: none; }
+  .search-wrap { position: relative; flex: 1; min-width: 160px; max-width: 260px; }
+  .search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); opacity: .45; pointer-events: none; }
+  #searchInput {
+    width: 100%; background: var(--surface-3); color: var(--text); border: 1px solid var(--border);
+    border-radius: 7px; font-size: 12.5px; padding: 7px 10px 7px 28px; font-family: inherit;
+  }
+  #searchInput::placeholder { color: var(--text-faint); }
+  #searchInput:focus { outline: none; border-color: var(--accent); }
+  select#sourceFilter {
+    background: var(--surface-3); color: var(--text); border: 1px solid var(--border);
+    border-radius: 7px; font-size: 12.5px; padding: 7px 10px; font-family: inherit; cursor: pointer; max-width: 170px;
+  }
+
+  .toggle { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-dim); cursor: pointer; user-select: none; white-space: nowrap; }
   .toggle input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
   .toolbar-sep { width: 1px; align-self: stretch; background: var(--border-soft); }
-  #pollStatus { font-size: 12px; color: var(--text-faint); margin-left: auto; }
+  #pollStatus { font-size: 11.5px; color: var(--text-faint); margin-left: auto; white-space: nowrap; }
 
-  .board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; }
+  .board { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 12px; margin-top: 18px; }
   .board::-webkit-scrollbar { height: 8px; }
   .board::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 8px; }
-  .col { min-width: 280px; max-width: 280px; background: var(--surface); border: 1px solid var(--border-soft); border-radius: 12px; padding: 12px; flex-shrink: 0; }
-  .col-head { display: flex; align-items: center; justify-content: space-between; margin: 2px 4px 12px; }
-  .col-head h3 { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin: 0; }
-  .col-head .count { font-size: 11px; color: var(--text-faint); background: var(--surface-3); border-radius: 20px; padding: 1px 8px; }
-  .empty-col { color: var(--text-faint); font-size: 12px; padding: 10px 4px; text-align: center; }
+  .col { min-width: 282px; max-width: 282px; background: var(--surface); border: 1px solid var(--border-soft); border-radius: 12px; padding: 12px; flex-shrink: 0; }
+  .col-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; margin: 2px 4px 12px; }
+  .col-head .col-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .col-head h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin: 0; flex: 1; }
+  .col-head .count { font-size: 11px; color: var(--text-faint); background: var(--surface-3); border-radius: 20px; padding: 1px 8px; font-variant-numeric: tabular-nums; }
+  .empty-col { color: var(--text-faint); font-size: 12px; padding: 18px 4px; text-align: center; border: 1px dashed var(--border-soft); border-radius: 8px; }
 
   .card {
     background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 10px;
     padding: 12px; margin-bottom: 10px; font-size: 13px; box-shadow: var(--shadow);
-    transition: border-color .15s, transform .1s;
+    transition: border-color .15s, transform .12s;
+    animation: fadeUp .25s ease both;
   }
-  .card:hover { border-color: #33394a; }
+  .card:hover { border-color: #3a4152; transform: translateY(-1px); }
   .card .badges { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
   .src-badge { font-size: 10px; font-weight: 700; letter-spacing: .02em; padding: 2px 7px; border-radius: 5px; }
-  .score-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); margin-left: auto; }
+  .score-badge {
+    font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px;
+    background: var(--accent-soft); color: var(--accent); margin-left: auto; cursor: help;
+  }
   .card .title { font-weight: 600; line-height: 1.35; margin-bottom: 8px; color: var(--text); }
   .card .meta { color: var(--text-dim); font-size: 11.5px; margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
-  .card .meta .lbl { color: var(--text-faint); }
+  .card .meta .lbl { color: var(--text-faint); min-width: 46px; }
   .deadline { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 5px; display: inline-block; }
   .dl-ok { background: var(--success-soft); color: var(--success); }
   .dl-soon { background: var(--warning-soft); color: var(--warning); }
   .dl-urgent { background: var(--danger-soft); color: var(--danger); }
-  .card .link-row { margin: 8px 0 10px; }
-  .card .link-row a { font-size: 12px; }
+  .kw-row { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 2px; }
+  .kw-tag { font-size: 10px; color: var(--text-dim); background: var(--surface-3); border: 1px solid var(--border-soft); border-radius: 4px; padding: 1.5px 6px; }
+  .card .link-row { margin: 10px 0 10px; }
+  .card .link-row a { font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
   select.status-select {
     width: 100%; background: var(--surface-3); color: var(--text); border: 1px solid var(--border);
-    border-radius: 6px; font-size: 11.5px; padding: 5px 6px; cursor: pointer;
+    border-radius: 6px; font-size: 11.5px; padding: 6px 6px; cursor: pointer; font-family: inherit;
   }
 
-  .loading-state, .board-empty { color: var(--text-faint); font-size: 13px; padding: 40px 0; text-align: center; }
+  .loading-state, .board-empty { color: var(--text-faint); font-size: 13px; padding: 60px 0; text-align: center; }
+  .loading-state .big-spinner {
+    width: 26px; height: 26px; border-radius: 50%; margin: 0 auto 12px;
+    border: 3px solid var(--surface-3); border-top-color: var(--accent); animation: spin .8s linear infinite;
+  }
+  .board-empty .emoji { font-size: 26px; margin-bottom: 8px; display: block; }
+
+  @media (max-width: 720px) {
+    body { padding: 16px 14px 40px; }
+    .topbar { margin: -16px -14px 0; padding: 12px 14px 12px; }
+    header { gap: 12px; }
+    .stats { width: 100%; }
+    .stat { flex: 1; min-width: 0; }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .toolbar-sep { display: none; }
+    .search-wrap, select#sourceFilter { max-width: none; }
+    #pollStatus { margin-left: 0; text-align: center; }
+    .board { flex-direction: column; overflow-x: visible; }
+    .col { min-width: 0; max-width: none; }
+  }
 </style>
 </head>
 <body>
-  <header>
-    <div class="brand">
-      <h1>opencall-monitor</h1>
-      <div class="sub">Monitorim thirrjesh/tenderësh për shërbime ligjore — GIZ, TED/BE, UNDP, Prokurimi Publik, DevelopmentAid</div>
-    </div>
-    <div class="stats" id="stats"></div>
-  </header>
+  <div class="topbar">
+    <header>
+      <div class="brand">
+        <div class="logo">⚖️</div>
+        <div>
+          <h1>opencall-monitor</h1>
+          <div class="sub">Thirrje/tenderë për shërbime ligjore — GIZ, TED/BE, UNDP, Prokurimi Publik, DevelopmentAid</div>
+        </div>
+      </div>
+      <div class="stats" id="stats"></div>
+    </header>
 
-  <div class="toolbar">
-    <button class="primary" id="pollBtn" onclick="pollNow()">
-      <span class="spinner"></span><span id="pollBtnLabel">Kontrollo tani</span>
-    </button>
-    <div class="toolbar-sep"></div>
-    <label class="toggle"><input type="checkbox" id="relevantToggle" checked onchange="loadBoard()"> Vetëm relevante</label>
-    <label class="toggle"><input type="checkbox" id="expiredToggle" onchange="loadBoard()"> Përfshi të skaduara</label>
-    <span id="pollStatus"></span>
+    <div class="toolbar">
+      <button class="primary" id="pollBtn" onclick="pollNow()">
+        <span class="spinner"></span><span id="pollBtnLabel">↻ Kontrollo tani</span>
+      </button>
+      <div class="toolbar-sep"></div>
+      <div class="search-wrap">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="searchInput" type="text" placeholder="Kërko titull ose botues…" oninput="renderBoard()">
+      </div>
+      <select id="sourceFilter" onchange="renderBoard()"><option value="">Të gjitha burimet</option></select>
+      <div class="toolbar-sep"></div>
+      <label class="toggle"><input type="checkbox" id="relevantToggle" checked onchange="loadBoard()"> Vetëm relevante</label>
+      <label class="toggle"><input type="checkbox" id="expiredToggle" onchange="loadBoard()"> Përfshi të skaduara</label>
+      <span id="pollStatus"></span>
+    </div>
   </div>
 
-  <div class="board" id="board"><div class="loading-state">Duke ngarkuar…</div></div>
+  <div class="board" id="board"><div class="loading-state"><div class="big-spinner"></div>Duke ngarkuar…</div></div>
 
 <script>
 const STATUSES = ["NEW","REVIEW","GO","BID","WON","LOST","DROPPED"];
+const STATUS_COLORS = { NEW:"#5b8cff", REVIEW:"#fbbf24", GO:"#34d399", BID:"#8b7bff", WON:"#34d399", LOST:"#f87171", DROPPED:"#5c6270" };
 
 const SOURCE_COLORS = {
   "GIZ": { bg: "rgba(91,140,255,0.15)", fg: "#8fb2ff" },
@@ -1127,6 +1202,8 @@ function sourceColor(name) {
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
   return { bg: `hsla(${h},60%,55%,0.15)`, fg: `hsl(${h},70%,72%)` };
 }
+
+let allNotices = [];
 
 function daysLeft(deadline) {
   if (!deadline) return null;
@@ -1156,8 +1233,17 @@ function renderStats(notices) {
   stats.innerHTML = [
     { n: notices.length, l: "Njoftime" },
     { n: sources.size, l: "Burime" },
-    { n: urgent, l: "Urgjente" },
-  ].map(s => `<div class="stat"><div class="n">${s.n}</div><div class="l">${s.l}</div></div>`).join('');
+    { n: urgent, l: "Urgjente", cls: urgent > 0 ? "urgent" : "" },
+  ].map(s => `<div class="stat ${s.cls||''}"><div class="n">${s.n}</div><div class="l">${s.l}</div></div>`).join('');
+}
+
+function populateSourceFilter(notices) {
+  const sel = document.getElementById('sourceFilter');
+  const current = sel.value;
+  const sources = [...new Set(notices.map(n => n.source))].sort();
+  sel.innerHTML = '<option value="">Të gjitha burimet</option>' +
+    sources.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+  if (sources.includes(current)) sel.value = current;
 }
 
 async function loadBoard() {
@@ -1165,12 +1251,24 @@ async function loadBoard() {
   const includeExpired = document.getElementById('expiredToggle').checked;
   const params = new URLSearchParams({ relevant_only: relevantOnly, include_expired: includeExpired });
   const res = await fetch(`/api/notices?${params}`);
-  const notices = await res.json();
+  allNotices = await res.json();
+  populateSourceFilter(allNotices);
+  renderBoard();
+}
+
+function renderBoard() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const sourceFilter = document.getElementById('sourceFilter').value;
+  let notices = allNotices;
+  if (sourceFilter) notices = notices.filter(n => n.source === sourceFilter);
+  if (q) notices = notices.filter(n =>
+    (n.title || '').toLowerCase().includes(q) || (n.buyer || '').toLowerCase().includes(q));
+
   renderStats(notices);
 
   const board = document.getElementById('board');
   if (notices.length === 0) {
-    board.innerHTML = '<div class="board-empty">Asnjë njoftim nuk përputhet me filtrat aktualë.</div>';
+    board.innerHTML = `<div class="board-empty"><span class="emoji">🔍</span>Asnjë njoftim nuk përputhet me filtrat aktualë.</div>`;
     return;
   }
   board.innerHTML = '';
@@ -1180,34 +1278,37 @@ async function loadBoard() {
     const items = notices.filter(n => n.status === status);
     const head = document.createElement('div');
     head.className = 'col-head';
-    head.innerHTML = `<h3>${status}</h3><span class="count">${items.length}</span>`;
+    head.innerHTML = `<span class="col-dot" style="background:${STATUS_COLORS[status]}"></span><h3>${status}</h3><span class="count">${items.length}</span>`;
     col.appendChild(head);
     if (items.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'empty-col';
-      empty.textContent = '—';
+      empty.textContent = 'Bosh';
       col.appendChild(empty);
     }
-    for (const n of items) {
+    items.forEach((n, i) => {
       const sc = sourceColor(n.source);
+      const kws = (n.matched_keywords || '').split(',').map(k => k.trim()).filter(Boolean).slice(0, 4);
       const card = document.createElement('div');
       card.className = 'card';
+      card.style.animationDelay = `${Math.min(i, 8) * 25}ms`;
       card.innerHTML = `
         <div class="badges">
           <span class="src-badge" style="background:${sc.bg};color:${sc.fg}">${escapeHtml(n.source)}</span>
-          <span class="score-badge">★ ${n.score}</span>
+          <span class="score-badge" title="Vlerësimi i relevancës">★ ${n.score}</span>
         </div>
         <div class="title">${escapeHtml(n.title)}</div>
         <div class="meta"><span class="lbl">botues:</span> ${escapeHtml(n.buyer || '—')}</div>
         <div class="meta"><span class="lbl">shpallur:</span> ${escapeHtml(n.published_date || '—')}</div>
         <div class="meta"><span class="lbl">afati:</span> ${deadlineChip(n.deadline)} ${escapeHtml(n.deadline || '')}</div>
+        ${kws.length ? `<div class="kw-row">${kws.map(k => `<span class="kw-tag">${escapeHtml(k)}</span>`).join('')}</div>` : ''}
         <div class="link-row"><a href="${n.url}" target="_blank" rel="noopener">hap burimin →</a></div>
         <select class="status-select" onchange="setStatus('${n.fingerprint}', this.value)">
           ${STATUSES.map(s => `<option value="${s}" ${s===status?'selected':''}>${s}</option>`).join('')}
         </select>
       `;
       col.appendChild(card);
-    }
+    });
     board.appendChild(col);
   }
 }
@@ -1232,7 +1333,7 @@ async function pollNow() {
   } finally {
     btn.classList.remove('loading');
     btn.disabled = false;
-    label.textContent = 'Kontrollo tani';
+    label.textContent = '↻ Kontrollo tani';
     loadBoard();
   }
 }
