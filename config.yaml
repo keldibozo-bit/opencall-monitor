@@ -110,13 +110,15 @@ app_gov:
     - "konsulence ligjore"
     - "perfaqesim ligjor"
 
-# === DevelopmentAid.org — kerkon llogari (membership), mbulon 150+ donatore
-# (EC, EBRD, WB, GIZ, ADA, UNDP, UN Women, ILO, WHO etj.) per Shqiperi ne nje
-# vend te vetem. Kredencialet VIJNE NGA ENVIRONMENT VARIABLES (DEVELOPMENT_AID_EMAIL,
-# DEVELOPMENT_AID_PASSWORD) - ne Render vendosen te "Environment" ne dashboard,
-# lokalisht vendosen te start_server.bat (file lokal, s'shkon ne git).
+# === DevelopmentAid.org — CAKTIVIZUAR (2026-08-27): sajti filloi te na
+# bllokoje me sfiden anti-bot te Cloudflare pas perdorimit te shpeshte gjate
+# ketij sesioni. S'anashkalojme mbrojtje anti-bot (do te ishte "evazion
+# zbulimi"), prandaj e caktivizojme ne vend qe ta detyrojme. Mbulon 150+
+# donatore (EC, EBRD, WB, GIZ, ADA, UNDP, UN Women, ILO, WHO etj.) - nese
+# rikthehet ndonjehere e perdorshme, kredencialet jane te gatshme (env vars
+# DEVELOPMENT_AID_EMAIL/PASSWORD, tashme te vendosura ne Render).
 development_aid:
-  enabled: true
+  enabled: false
   email: "${DEVELOPMENT_AID_EMAIL}"
   password: "${DEVELOPMENT_AID_PASSWORD}"
   location_id: 262   # Shqiperia (id i brendshem i developmentaid.org)
