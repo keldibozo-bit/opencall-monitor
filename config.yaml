@@ -3,8 +3,17 @@
 # Sa shpesh të kontrollohen burimet (orë)
 poll_interval_hours: 6
 
-# Fjalë-kyçe për scoring (rëndësi 0-3). Titulli/përshkrimi krahasohet me këto.
+# Fjalë-kyçe për scoring. Titulli/përshkrimi krahasohet me këto.
 keywords:
+  # Titull roli - sinjal aq i forte sa mjafton VETEM (edhe kur pershkrimi i plote
+  # s'eshte publik, p.sh. ne dokument te bashkangjitur pas login-it): nese dikush
+  # kerkon konkretisht nje "legal expert/consultant", eshte relevante pothuajse
+  # gjithmone per nje studio ligjore/ekspert individual.
+  critical:  # +5 pike secila
+    - "legal expert"
+    - "legal consultant"
+    - "ekspert ligjor"
+    - "konsulent ligjor"
   high:      # +3 pikë secila
     - "legal services"
     - "legal advisory"
@@ -36,8 +45,6 @@ keywords:
     - "analizë ligjore"
   medium:    # +2 pikë secila
     - "consultancy"
-    - "legal expert"
-    - "ekspert ligjor"
     - "justice sector reform"
     - "judicial reform"
     - "access to justice"

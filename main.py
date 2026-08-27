@@ -117,7 +117,7 @@ def score_text(text: str) -> tuple[int, list[str]]:
         return 0, []
     text_low = text.lower()
     kw_cfg = CONFIG.get("keywords", {})
-    weights = {"high": 3, "medium": 2, "low": 1}
+    weights = {"critical": 5, "high": 3, "medium": 2, "low": 1}
     score = 0
     matched = []
     for tier, weight in weights.items():
@@ -278,6 +278,25 @@ UNDP_NS = {
 }
 
 
+def _undp_fetch_description(url: str) -> str:
+    """UNDP-ja e RSS feed-it jep vetem titullin - shume dobet per scoring (p.sh.
+    "International Legal Expert" vetem merr +2, poshte pragut 4). Faqja e
+    detajuar e njoftimit ka nje seksion "Introduction / SCOPE OF TENDER:" me
+    pershkrim te plote - e marrim per te dhene sinjal te mjaftueshem scoring-ut."""
+    try:
+        resp = requests.get(url, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+        text = soup.get_text(" ", strip=True)
+        idx = text.find("Introduction")
+        if idx == -1:
+            idx = text.find("Reference Number")
+        return text[idx : idx + 1500] if idx != -1 else ""
+    except requests.exceptions.RequestException as e:
+        log.warning("UNDP detail fetch deshtoi (%s): %s", url, e)
+        return ""
+
+
 def poll_undp() -> dict:
     undp_cfg = CONFIG.get("undp", {})
     if not undp_cfg.get("enabled"):
@@ -292,6 +311,9 @@ def poll_undp() -> dict:
         items = root.findall("rss:item", UNDP_NS)
         fetched = len(items)
 
+        with get_conn() as conn:
+            known_urls = {row["url"] for row in conn.execute("SELECT url FROM notices WHERE source = 'UNDP'")}
+
         for it in items:
             title_el = it.find("rss:title", UNDP_NS)
             link_el = it.find("rss:link", UNDP_NS)
@@ -305,6 +327,10 @@ def poll_undp() -> dict:
             published_date = (date_el.text or "")[:10] if date_el is not None and date_el.text else ""
             deadline = (deadline_el.text or "")[:10] if deadline_el is not None and deadline_el.text else ""
 
+            # Vetem njoftimet e reja shkojne te faqja e detajuar - i njohurit s'i
+            # rifetchojme çdo poll cikel (njesoj si tek Panorama).
+            description = title if link in known_urls else f"{title} {_undp_fetch_description(link)}"
+
             item = {
                 "source": "UNDP",
                 "external_id": link,
@@ -313,8 +339,7 @@ def poll_undp() -> dict:
                 "published_date": published_date,
                 "deadline": deadline,
                 "url": link,
-                # feed-i jep vetem titull, jo tekst te plote artikulli - scoring behet mbi titullin
-                "description": title,
+                "description": description,
             }
             if upsert_notice(item):
                 new += 1
