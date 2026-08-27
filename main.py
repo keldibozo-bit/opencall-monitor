@@ -35,6 +35,17 @@ CONFIG_PATH = BASE_DIR / "config.yaml"
 
 STATUSES = ["NEW", "REVIEW", "GO", "BID", "WON", "LOST", "DROPPED"]
 
+# Argumente qendrueshmerie per Chromium ne mjedise te kufizuara/kontejnerizuara
+# (si Render free tier: 512MB RAM, 0.1 CPU). --disable-dev-shm-usage eshte
+# esencial ne Docker sepse /dev/shm parazgjedhur eshte shume i vogel per
+# Chromium dhe e ben te crash-oje/ngec ne menyre te herepashershme - kjo eshte
+# shkaku me i mundshem i dështimeve te ndermjetme te app_gov/development_aid.
+CHROMIUM_LAUNCH_ARGS = [
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--no-sandbox",
+]
+
 
 # ---------------------------------------------------------------------------
 # Config
@@ -401,7 +412,7 @@ def poll_app_gov() -> dict:
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(headless=True, args=CHROMIUM_LAUNCH_ARGS)
             page = browser.new_page()
             for term in search_terms:
                 try:
@@ -445,12 +456,12 @@ DEV_AID_OPEN_STATUSES = {"open"}
 
 def _dev_aid_login(page) -> bool:
     cfg = CONFIG.get("development_aid", {})
-    page.goto("https://www.developmentaid.org/", timeout=30000, wait_until="domcontentloaded")
-    page.wait_for_timeout(1200)
+    page.goto("https://www.developmentaid.org/", timeout=45000, wait_until="load")
+    page.wait_for_timeout(2500)
     page.evaluate(
         "() => { const el = document.querySelector('da-cookie-police-notification'); if (el) el.remove(); }"
     )
-    page.click("text=Sign in", timeout=10000)
+    page.click("text=Sign in", timeout=20000)
     page.wait_for_timeout(1500)
     email_inputs = [
         el for el in page.query_selector_all('input[type="email"], input[name*="email" i]') if el.is_visible()
@@ -549,7 +560,7 @@ def poll_development_aid() -> dict:
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(headless=True, args=CHROMIUM_LAUNCH_ARGS)
             context = browser.new_context()
             page = context.new_page()
             logged_in = False
