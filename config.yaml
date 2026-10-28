@@ -159,8 +159,12 @@ development_aid:
 # Per te shtuar nje organizate te re: gjej fjalen/frazen qe e identifikon ne titull
 # (kontrollo manualisht disa faqe te kategorise) dhe shtoje ketu - mos shto organizata
 # "me hamendje" pa u siguruar qe publikojne vertet ne kete feed.
+# CAKTIVIZUAR NE SERVER (2026-10-28): Cloudflare i Panorames bllokon IP-te e
+# Render-it (403 edhe per feed-in RSS). Panorama lexohet çdo mengjes nga
+# kompjuteri i perdoruesit dhe njoftimet dergohen te /api/ingest.
+# "organizations" me poshte perdoret ende nga /api/ingest.
 donors:
-  enabled: true
+  enabled: false
   base_url: "https://www.panorama.com.al/category/njoftime/"
   max_pages: 10         # sa faqe pagination te kontrollohen (faqja 1 + N-1 vijuese)
   fetch_deadline_from_article: true   # hap cdo artikull te ri per te kerkuar afatin/daten (regex)

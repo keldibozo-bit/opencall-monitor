@@ -23,7 +23,7 @@ import requests
 import yaml
 from bs4 import BeautifulSoup
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI, Query
+from fastapi import Body, FastAPI, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from playwright.sync_api import sync_playwright
 
@@ -1089,6 +1089,38 @@ def shutdown():
 def trigger_poll():
     """Nis kontrollin manualisht (p.sh. për testim)"""
     return {"results": poll_all()}
+
+
+@app.post("/api/ingest")
+def ingest(items: list[dict] = Body(...)):
+    """Pranon njoftime te mbledhura jashte serverit (p.sh. Panorama, qe bllokon
+    IP-te e Render-it dhe lexohet nga kompjuteri i perdoruesit). Çdo item:
+    {title, url, source?, buyer?, published_date?, deadline?, description?}.
+    Pikezimi behet ketu, me te njejtat fjale-kyce si per burimet e tjera."""
+    organizations = CONFIG.get("donors", {}).get("organizations", [])
+    received, new = 0, 0
+    for it in items[:200]:
+        title = str(it.get("title", "")).strip()
+        url = str(it.get("url", "")).strip()
+        if not title or not url.startswith("http"):
+            continue
+        received += 1
+        text = str(it.get("description", ""))[:4000]
+        deadline = str(it.get("deadline", "") or "")[:10] or extract_deadline_from_text(text)
+        org = it.get("source") or match_organization(title, text, organizations)
+        item = {
+            "source": str(org)[:120],
+            "external_id": url,
+            "title": title[:500],
+            "buyer": str(it.get("buyer") or org)[:120],
+            "published_date": str(it.get("published_date", "") or "")[:10],
+            "deadline": deadline,
+            "url": url,
+            "description": GENERIC_GIZ_PROFILE_RE.sub("", f"{title} {text}"),
+        }
+        if upsert_notice(item):
+            new += 1
+    return {"received": received, "new": new}
 
 
 @app.get("/api/notices")
