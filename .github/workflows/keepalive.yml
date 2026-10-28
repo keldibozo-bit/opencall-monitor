@@ -1,0 +1,17 @@
+# Mban zgjuar serverin falas në Render (fle pas 15 min pa vizita), që
+# scheduler-i i brendshëm të kontrollojë burimet çdo 6 orë pa ndërhyrje.
+# Plani falas i Render jep 750 orë/muaj, mjaft për një shërbim 24/7.
+name: keepalive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping opencall-monitor
+        run: curl -fsS -m 90 -o /dev/null -w "%{http_code}\n" https://opencall-monitor.onrender.com/api/notices || true
