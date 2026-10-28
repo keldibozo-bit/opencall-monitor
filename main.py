@@ -24,6 +24,7 @@ import yaml
 from bs4 import BeautifulSoup
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import Body, FastAPI, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from playwright.sync_api import sync_playwright
 
@@ -1066,6 +1067,14 @@ def poll_all() -> list[dict]:
 # FastAPI app
 # ---------------------------------------------------------------------------
 app = FastAPI(title="opencall-monitor")
+# Lejon qe skripti i kontrollit te mengjesit, qe ekzekutohet ne faqen e Panorames
+# ne browser-in e perdoruesit, t'i dergoje njoftimet direkt te /api/ingest.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://www.panorama.com.al", "https://panorama.com.al"],
+    allow_methods=["POST"],
+    allow_headers=["Content-Type"],
+)
 scheduler = BackgroundScheduler()
 
 
