@@ -7,6 +7,7 @@ Dashboard: http://<server>:8000/
 """
 
 import hashlib
+import json
 import logging
 import os
 import re
@@ -266,6 +267,98 @@ def poll_ted() -> dict:
         log.error("TED poll error: %s", e)
 
     return {"source": "ted", "fetched": fetched, "new": new, "error": error}
+
+
+# ---------------------------------------------------------------------------
+# Connector: EU Funding & Tenders Portal (SEDIA search API, publik, pa login).
+# Ketu publikohen tenderat e EuropeAid/NEAR/ENEST per Shqiperine (asistence
+# teknike IPA, p.sh. "EU4Justice II", "TA in support of Chapter 22") qe shpesh
+# NUK dalin ne TED me CPV 79xxx. Ky ishte boshllëku kryesor i monitoruesit.
+# Statuset: 31094501 = Forthcoming, 31094502 = Open, 31094503 = Closed.
+# ---------------------------------------------------------------------------
+FT_OPEN_STATUSES = ["31094501", "31094502"]
+FT_STALE_NO_DEADLINE_DAYS = 180
+
+
+def _ft_first(meta: dict, key: str, default: str = "") -> str:
+    val = meta.get(key)
+    if isinstance(val, list):
+        val = val[0] if val else default
+    return val if isinstance(val, str) else default
+
+
+def _ft_parse_result(r: dict, today: str, stale_cutoff: str) -> Optional[dict]:
+    """Kthen item-in per upsert_notice, ose None nese tenderi eshte i mbyllur/i vjeter."""
+    meta = r.get("metadata", {}) or {}
+    title = _ft_first(meta, "title").strip()
+    url = r.get("url", "")
+    ref = r.get("reference") or _ft_first(meta, "identifier")
+    if not title or not ref:
+        return None
+    if _ft_first(meta, "status") not in FT_OPEN_STATUSES:
+        return None
+    deadline = _ft_first(meta, "deadlineDate")[:10]
+    start = _ft_first(meta, "startDate")[:10]
+    if deadline and deadline < today:
+        return None
+    if not deadline and (not start or start < stale_cutoff):
+        return None  # "open" pa afat dhe i vjeter = mbetje ne portal, jo thirrje reale
+    description = BeautifulSoup(_ft_first(meta, "description"), "html.parser").get_text(" ", strip=True)
+    call_id = _ft_first(meta, "callIdentifier")
+    return {
+        "source": "EU F&T Portal",
+        "external_id": ref,
+        "title": f"{title} ({call_id})" if call_id else title,
+        "buyer": "Komisioni Evropian / agjenci e BE-së",
+        "published_date": start,
+        "deadline": deadline,
+        "url": url,
+        "description": f"{title} {description}",
+    }
+
+
+def poll_eu_ft() -> dict:
+    cfg = CONFIG.get("eu_ft", {})
+    if not cfg.get("enabled"):
+        return {"source": "eu_ft", "fetched": 0, "new": 0, "error": None}
+
+    now = datetime.now(timezone.utc).date()
+    today = now.isoformat()
+    stale_cutoff = (now - timedelta(days=FT_STALE_NO_DEADLINE_DAYS)).isoformat()
+    query = {"bool": {"must": [
+        {"terms": {"type": ["0"]}},  # 0 = tender (jo grant)
+        {"terms": {"status": FT_OPEN_STATUSES}},
+    ]}}
+
+    fetched, new = 0, 0
+    error = None
+    seen = set()
+    try:
+        for term in cfg.get("search_terms", ["Albania"]):
+            files = {
+                "query": ("blob", json.dumps(query), "application/json"),
+                "languages": ("blob", json.dumps(["en"]), "application/json"),
+            }
+            resp = requests.post(
+                cfg["endpoint"],
+                params={"apiKey": "SEDIA", "text": term, "pageSize": cfg.get("page_size", 100), "pageNumber": 1},
+                files=files,
+                timeout=30,
+            )
+            resp.raise_for_status()
+            for r in resp.json().get("results", []) or []:
+                item = _ft_parse_result(r, today, stale_cutoff)
+                if not item or item["external_id"] in seen:
+                    continue
+                seen.add(item["external_id"])
+                fetched += 1
+                if upsert_notice(item):
+                    new += 1
+    except (requests.exceptions.RequestException, ValueError) as e:
+        error = str(e)
+        log.error("EU F&T poll error: %s", e)
+
+    return {"source": "eu_ft", "fetched": fetched, "new": new, "error": error}
 
 
 # ---------------------------------------------------------------------------
@@ -814,6 +907,30 @@ def match_organization(title: str, article_text: str, organizations: list[dict])
     return "Panorama - Njoftime"
 
 
+def _panorama_feed_entries(base_url: str) -> list[tuple[str, str, str, str]]:
+    """Lexon feed-in RSS te kategorise (<base_url>feed/). Kthen listen
+    (href, titulli, published_date YYYY-MM-DD, pershkrimi i paster)."""
+    resp = requests.get(base_url + "feed/", timeout=20, headers={"User-Agent": "Mozilla/5.0"})
+    resp.raise_for_status()
+    root = ET.fromstring(resp.content)
+    out = []
+    for it in root.iter("item"):
+        title = (it.findtext("title") or "").strip()
+        href = (it.findtext("link") or "").strip()
+        if not title or not href:
+            continue
+        pub = ""
+        raw_pub = (it.findtext("pubDate") or "").strip()
+        if raw_pub:
+            try:
+                pub = datetime.strptime(raw_pub[:16], "%a, %d %b %Y").date().isoformat()
+            except ValueError:
+                pub = ""
+        desc = BeautifulSoup(it.findtext("description") or "", "html.parser").get_text(" ", strip=True)
+        out.append((href, title, pub, desc))
+    return out
+
+
 def poll_giz() -> dict:
     """Merr çdo njoftim nga kategoria 'njoftime' e Panorama Online - pavaresisht
     kush e ka botuar (OJF, donator, biznes privat, banke, gjykate, institucion
@@ -836,6 +953,7 @@ def poll_giz() -> dict:
     error = None
     seen_urls = set()
     to_fetch = []  # (href, title) - vetem linket e reja, jo te ato tashme ne baze
+    feed_meta = {}  # href -> (published_date, teksti i shkurter nga RSS)
 
     try:
         for page in range(1, max_pages + 1):
@@ -843,6 +961,21 @@ def poll_giz() -> dict:
             resp = requests.get(page_url, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
             if resp.status_code == 404:
                 break  # nuk ka me faqe pagination
+            if resp.status_code in (403, 429, 503) and page == 1:
+                # Cloudflare i Panorames bllokon faqet HTML nga IP-te e serverave
+                # (Render) me 403. S'e anashkalojme mbrojtjen; perdorim feed-in RSS
+                # zyrtar te kategorise, qe eshte endpoint-i i menduar per lexim
+                # automatik (jep vetem ~4 njoftimet e fundit + permbledhje).
+                log.warning("Panorama HTML ktheu %s - kaloj te feed-i RSS", resp.status_code)
+                for href, title, pub, desc in _panorama_feed_entries(base_url):
+                    if href in seen_urls:
+                        continue
+                    seen_urls.add(href)
+                    fetched += 1
+                    feed_meta[href] = (pub, desc)
+                    if href not in known_urls:
+                        to_fetch.append((href, title))
+                break
             resp.raise_for_status()
             soup = BeautifulSoup(resp.text, "html.parser")
 
@@ -879,6 +1012,13 @@ def poll_giz() -> dict:
             deadline, published_date, article_text = ("", "", "")
             if fetch_deadline:
                 deadline, published_date, article_text = fetch_article(href)
+            if href in feed_meta:
+                # Nese artikulli s'u lexua (edhe ai 403), mjaftohemi me te dhenat e feed-it.
+                feed_pub, feed_desc = feed_meta[href]
+                published_date = published_date or feed_pub
+                if not article_text:
+                    article_text = f"{title} {feed_desc}"
+                    deadline = deadline or extract_deadline_from_text(feed_desc)
             return href, title, deadline, published_date, article_text
 
         if to_fetch:
@@ -900,7 +1040,7 @@ def poll_giz() -> dict:
                     if upsert_notice(item):
                         new += 1
 
-    except requests.exceptions.RequestException as e:
+    except (requests.exceptions.RequestException, ET.ParseError) as e:
         error = str(e)
         log.error("Donors poll error: %s", e)
 
@@ -908,12 +1048,16 @@ def poll_giz() -> dict:
 
 
 def poll_all() -> list[dict]:
+    """Burimet e lehta (HTTP) para atyre me Playwright: ne Render free (512MB)
+    Chromium mund ta rrezoje procesin; keshtu burimet e tjera ruhen gjithsesi.
+    Çdo connector izolohet, qe nje gabim i papritur te mos ndaloje te tjeret."""
     results = []
-    results.append(poll_ted())
-    results.append(poll_undp())
-    results.append(poll_app_gov())
-    results.append(poll_development_aid())
-    results.append(poll_giz())
+    for fn in (poll_ted, poll_eu_ft, poll_undp, poll_giz, poll_app_gov, poll_development_aid):
+        try:
+            results.append(fn())
+        except Exception as e:  # noqa: BLE001
+            log.exception("%s deshtoi", fn.__name__)
+            results.append({"source": fn.__name__.replace("poll_", ""), "fetched": 0, "new": 0, "error": str(e)})
     log.info("Poll rezultati: %s", results)
     return results
 
@@ -1207,7 +1351,7 @@ DASHBOARD_HTML = """
         <div class="logo">⚖️</div>
         <div>
           <h1>opencall-monitor</h1>
-          <div class="sub">Thirrje/tenderë për shërbime ligjore — GIZ, TED/BE, UNDP, Prokurimi Publik, DevelopmentAid</div>
+          <div class="sub">Thirrje/tenderë për shërbime ligjore — GIZ, TED/BE, EU F&amp;T Portal, UNDP, Prokurimi Publik</div>
         </div>
       </div>
       <div class="stats" id="stats"></div>
@@ -1242,6 +1386,7 @@ const SOURCE_COLORS = {
   "UNDP": { bg: "rgba(96,165,250,0.15)", fg: "#7cb8fb" },
   "APP (Prokurimi Publik)": { bg: "rgba(251,191,36,0.15)", fg: "#fbbf24" },
   "DevelopmentAid": { bg: "rgba(232,121,249,0.15)", fg: "#e879f9" },
+  "EU F&T Portal": { bg: "rgba(45,212,191,0.15)", fg: "#5eead4" },
 };
 function sourceColor(name) {
   if (SOURCE_COLORS[name]) return SOURCE_COLORS[name];
@@ -1376,7 +1521,8 @@ async function pollNow() {
     const res = await fetch('/api/poll', { method: 'POST' });
     const data = await res.json();
     const total = data.results.reduce((sum, r) => sum + (r.new || 0), 0);
-    document.getElementById('pollStatus').textContent = `${total} njoftime të reja · ${new Date().toLocaleTimeString('sq-AL')}`;
+    const errs = data.results.filter(r => r.error).map(r => r.source);
+    document.getElementById('pollStatus').textContent = `${total} njoftime të reja · ${new Date().toLocaleTimeString('sq-AL')}` + (errs.length ? ` · gabim: ${errs.join(', ')}` : '');
   } finally {
     btn.classList.remove('loading');
     btn.disabled = false;

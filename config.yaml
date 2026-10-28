@@ -19,6 +19,7 @@ keywords:
     - "legal advisory"
     - "rule of law"
     - "legislation"
+    - "legislative"
     - "approximation"
     - "legal approximation"
     - "harmonization of legislation"
@@ -57,9 +58,12 @@ keywords:
     - "team leader"
     - "team leader/legal"
     - "eu integration"
-    - "eu accession"
     - "integrim evropian"
     - "konsulencë ligjore"
+    - "technical assistance"
+    - "accession"
+    - "legal framework"
+    - "fundamental rights"
   low:       # +1 pikë secila
     - "capacity building"
     - "institutional reform"
@@ -97,6 +101,17 @@ ted:
   place_of_performance: "ALB"
   scope: "ACTIVE"
   limit: 100
+
+# === EU Funding & Tenders Portal (SEDIA search API, publik, pa login) ===
+# Tenderat EuropeAid/NEAR/ENEST per Shqiperine (asistence teknike IPA, p.sh.
+# EU4Justice II) - shume prej tyre NUK dalin ne TED me CPV ligjore.
+eu_ft:
+  enabled: true
+  endpoint: "https://api.tech.ec.europa.eu/search-api/prod/rest/search"
+  search_terms:
+    - "Albania"
+    - "Western Balkans"
+  page_size: 100
 
 # === UNDP Albania (RSS/RDF publik, pa autentikim) ===
 undp:
